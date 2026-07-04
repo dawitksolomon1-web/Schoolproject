@@ -61,12 +61,21 @@ class CanvasScraper:
     def _goto(self, url: str) -> bool:
         if url.startswith("/"):
             url = self.base_url + url
-        try:
-            self.page.goto(url, wait_until="domcontentloaded", timeout=PAGE_TIMEOUT_MS)
-            return True
-        except Exception:
-            logger.warning("Could not open %s", url)
-            return False
+        for attempt in (1, 2):
+            try:
+                self.page.goto(url, wait_until="domcontentloaded", timeout=PAGE_TIMEOUT_MS)
+                return True
+            except Exception:
+                if attempt == 1:
+                    # A failed navigation (e.g. an error page still loading) can
+                    # interrupt the next goto — settle the tab and retry once.
+                    try:
+                        self.page.goto("about:blank", timeout=5000)
+                    except Exception:
+                        pass
+                else:
+                    logger.warning("Could not open %s", url)
+        return False
 
     # -- courses ------------------------------------------------------------
 
