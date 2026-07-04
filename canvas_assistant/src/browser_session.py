@@ -26,6 +26,10 @@ LOGGED_IN_MARKERS = (
     "#dashboard",
 )
 
+# SSO logins bounce through the university's identity provider (Shibboleth,
+# Okta, ADFS, ...). Navigation during login gets a generous timeout.
+LOGIN_NAV_TIMEOUT_MS = 90_000
+
 
 class BrowserSession:
     """Wraps a Playwright persistent Chrome context pointed at Canvas."""
@@ -75,31 +79,68 @@ class BrowserSession:
 
     # -- login ------------------------------------------------------------
 
+    def _safe_goto(self, url: str, timeout: int = LOGIN_NAV_TIMEOUT_MS) -> None:
+        """Navigate without crashing on SSO redirects.
+
+        Canvas instances behind SSO immediately redirect to the university's
+        identity provider (e.g. shib.idm.umd.edu), which interrupts the
+        original navigation and makes page.goto raise. That's expected —
+        swallow the error and let the page settle wherever it lands.
+        """
+        try:
+            self.page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+        except Exception as exc:
+            logger.info("Navigation to %s was redirected/interrupted (%s) — continuing.",
+                        url, str(exc).splitlines()[0][:120])
+        try:
+            self.page.wait_for_load_state("domcontentloaded", timeout=timeout)
+        except Exception:
+            pass
+
     def interactive_login(self) -> None:
         """Open Canvas and let the user log in manually; the persistent
         profile keeps the session for future headless runs."""
-        self.page.goto(self.base_url, wait_until="domcontentloaded")
+        self.page.set_default_navigation_timeout(LOGIN_NAV_TIMEOUT_MS)
+        self._safe_goto(self.base_url)
         if self._looks_logged_in():
             print("You already have a saved Canvas session — no login needed.")
             return
         print(
             "\nA Chrome window is open at your Canvas login page.\n"
-            "Log in normally (including SSO / 2FA if your school uses it).\n"
+            "If it redirected to your university's SSO page, that's normal —\n"
+            "log in there as usual (2FA included).\n"
             "When you can see your Canvas dashboard, come back here.\n"
         )
         input("Press Enter once you are logged in and can see your dashboard... ")
-        self.page.goto(self.base_url, wait_until="domcontentloaded")
-        if self._looks_logged_in():
+        if self._confirm_authenticated():
             print("Login session saved. Future commands will reuse it automatically.")
         else:
             raise RuntimeError(
-                "Could not confirm a logged-in Canvas session. Make sure you "
-                "finished logging in in the opened window, then run "
-                "`python main.py login` again."
+                "Still not logged in to Canvas. Finish logging in in the opened "
+                "Chrome window (complete any SSO/2FA steps), make sure you can "
+                "see your dashboard, then run `python main.py login` again."
             )
 
+    def _confirm_authenticated(self, attempts: int = 3) -> bool:
+        """Re-visit Canvas and check for logged-in markers, tolerating an SSO
+        round-trip that may still be redirecting back to Canvas."""
+        import time
+
+        for attempt in range(attempts):
+            self._safe_goto(self.base_url)
+            try:
+                # give any redirect chain (Canvas -> IdP -> Canvas) time to finish
+                self.page.wait_for_load_state("networkidle", timeout=15000)
+            except Exception:
+                pass
+            if self._looks_logged_in():
+                return True
+            if attempt < attempts - 1:
+                time.sleep(2)
+        return False
+
     def ensure_logged_in(self) -> None:
-        self.page.goto(self.base_url, wait_until="domcontentloaded")
+        self._safe_goto(self.base_url, timeout=30000)
         if not self._looks_logged_in():
             raise RuntimeError(
                 "No valid Canvas session found. Run `python main.py login` first "
@@ -107,7 +148,16 @@ class BrowserSession:
             )
 
     def _looks_logged_in(self) -> bool:
-        if "/login" in self.page.url:
+        from urllib.parse import urlparse
+
+        url = self.page.url.lower()
+        # Parked on another domain (the university's identity provider,
+        # e.g. shib.idm.umd.edu) -> mid-SSO, not authenticated yet.
+        page_host = urlparse(url).netloc
+        canvas_host = urlparse(self.base_url.lower()).netloc
+        if page_host and page_host != canvas_host:
+            return False
+        if "/login" in url:
             return False
         for selector in LOGGED_IN_MARKERS:
             try:
