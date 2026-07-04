@@ -1,11 +1,14 @@
 """
-Read-only Canvas API client.
+LEGACY / OPT-IN ONLY: read-only Canvas API client.
+
+The assistant is browser-only by default and nothing imports this module
+unless you explicitly set CANVAS_USE_API=1 and provide CANVAS_API_TOKEN in
+.env, then wire it in yourself. It is kept for users who later decide the
+API is more reliable than scraping at their institution.
 
 This module only ever issues HTTP GET requests against the Canvas REST API.
 It has no method that creates, updates, or submits anything — there is no
-POST/PUT/DELETE call anywhere in this file. That is intentional: the whole
-assistant is built to prepare drafts for a human to review and submit
-themselves, never to touch Canvas's submission endpoints.
+POST/PUT/DELETE call anywhere in this file.
 """
 from __future__ import annotations
 
@@ -14,7 +17,18 @@ from typing import Iterator, Optional
 
 import requests
 
-from config import CANVAS_API_TOKEN, CANVAS_BASE_URL, require_canvas_credentials
+from config import CANVAS_API_TOKEN, CANVAS_BASE_URL, CANVAS_USE_API
+
+
+def _require_api_enabled() -> None:
+    if not CANVAS_USE_API:
+        raise RuntimeError(
+            "Canvas API mode is disabled. The assistant is browser-only by "
+            "default; set CANVAS_USE_API=1 and CANVAS_API_TOKEN in .env if you "
+            "deliberately want API access."
+        )
+    if not CANVAS_BASE_URL or not CANVAS_API_TOKEN:
+        raise RuntimeError("CANVAS_BASE_URL and CANVAS_API_TOKEN must be set for API mode.")
 
 logger = logging.getLogger("canvas_assistant.canvas_client")
 
@@ -29,7 +43,7 @@ class CanvasClient:
     """Thin wrapper around the Canvas REST API (read-only)."""
 
     def __init__(self, base_url: Optional[str] = None, token: Optional[str] = None):
-        require_canvas_credentials()
+        _require_api_enabled()
         self.base_url = (base_url or CANVAS_BASE_URL).rstrip("/")
         self.token = token or CANVAS_API_TOKEN
         self.session = requests.Session()

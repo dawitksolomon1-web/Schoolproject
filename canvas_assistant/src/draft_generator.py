@@ -1,9 +1,10 @@
 """
-Generates review-ready draft solutions for assignments.
+Generates review-ready draft files for assignments.
 
 IMPORTANT: this module only ever writes files under data/drafts/. It never
-calls a Canvas submission endpoint, and every draft it writes is explicitly
-labeled as a draft the student must review, edit, and submit themselves.
+touches Canvas at all — no navigation, no clicks, no uploads. Every draft it
+writes is explicitly labeled as a draft the student must review, edit, and
+submit themselves.
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ import anthropic
 
 from config import ANTHROPIC_API_KEY, DRAFT_MODEL, DRAFTS_DIR
 from src.knowledge_base import KnowledgeBase
-from src.models import Assignment, Course
+from src.models import Assignment
 from src.utils import slugify
 
 logger = logging.getLogger("canvas_assistant.draft_generator")
@@ -62,6 +63,17 @@ class DraftResult:
     status: str = "ready_for_student_review"
 
 
+def existing_draft_metadata(assignment: Assignment) -> Optional[dict]:
+    for candidate in DRAFTS_DIR.glob(
+        f"{assignment.course_id}_*/{assignment.id}_*/metadata.json"
+    ):
+        try:
+            return json.loads(candidate.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+    return None
+
+
 def _extract_metadata(response_text: str) -> tuple[dict, str]:
     match = re.search(r"```json\s*(\{.*?\})\s*```", response_text, re.DOTALL)
     if not match:
@@ -77,26 +89,32 @@ def _extract_metadata(response_text: str) -> tuple[dict, str]:
 
 class DraftGenerator:
     def __init__(self, kb: KnowledgeBase, api_key: Optional[str] = None):
+        if not (api_key or ANTHROPIC_API_KEY):
+            raise RuntimeError(
+                "ANTHROPIC_API_KEY must be set in .env to generate drafts."
+            )
         self.kb = kb
         self.client = anthropic.Anthropic(api_key=api_key or ANTHROPIC_API_KEY)
 
-    def generate_for_assignment(self, course: Course, assignment: Assignment) -> DraftResult:
+    def generate_for_assignment(self, assignment: Assignment) -> DraftResult:
         context_chunks = self.kb.query(
-            course.id, f"{assignment.name}\n{assignment.description}", n_results=6
+            assignment.course_id, f"{assignment.name}\n{assignment.description}", n_results=6
         )
         context_text = "\n\n".join(
             f"[Source: {c['metadata'].get('source_name')}]\n{c['text']}" for c in context_chunks
         ) or "(No matching course materials were found in the knowledge base.)"
 
-        due_str = assignment.due_at.isoformat() if assignment.due_at else "No due date listed"
+        due_str = assignment.due_text or (
+            assignment.due_at.isoformat() if assignment.due_at else "No due date listed"
+        )
+        kind = "graded discussion" if assignment.is_discussion else "assignment"
         user_prompt = f"""\
-Course: {course.name}
-Assignment: {assignment.name}
+Course: {assignment.course_name}
+{kind.capitalize()}: {assignment.name}
 Due: {due_str}
-Points possible: {assignment.points_possible}
 
-Assignment instructions (from Canvas):
-{assignment.description or "(No description text was provided on Canvas.)"}
+Assignment instructions (read from the Canvas assignment page):
+{assignment.description or "(No instruction text was visible on the assignment page.)"}
 
 Relevant course material excerpts retrieved from this course's knowledge base:
 {context_text}
@@ -114,7 +132,11 @@ themselves."""
         text = "".join(block.text for block in response.content if block.type == "text")
         meta, draft_body = _extract_metadata(text)
 
-        out_dir = DRAFTS_DIR / f"{course.id}_{slugify(course.name)}" / f"{assignment.id}_{slugify(assignment.name)}"
+        out_dir = (
+            DRAFTS_DIR
+            / f"{assignment.course_id}_{slugify(assignment.course_name)}"
+            / f"{assignment.id}_{slugify(assignment.name)}"
+        )
         out_dir.mkdir(parents=True, exist_ok=True)
         draft_path = out_dir / "draft.md"
         metadata_path = out_dir / "metadata.json"
@@ -124,14 +146,14 @@ themselves."""
             f"DRAFT ONLY — prepared by Canvas Academic Assistant for student review.\n"
             f"This file has NOT been submitted anywhere. Review, edit, and submit it\n"
             f"yourself through Canvas.\n"
-            f"Course: {course.name}\nAssignment: {assignment.name}\nDue: {due_str}\n"
+            f"Course: {assignment.course_name}\nAssignment: {assignment.name}\nDue: {due_str}\n"
             f"-->\n\n"
         )
         draft_path.write_text(header + draft_body)
 
         full_metadata = {
-            "course_id": course.id,
-            "course_name": course.name,
+            "course_id": assignment.course_id,
+            "course_name": assignment.course_name,
             "assignment_id": assignment.id,
             "assignment_name": assignment.name,
             "due_at": due_str,
@@ -147,7 +169,7 @@ themselves."""
 
         logger.info("Draft ready for review: %s", draft_path)
         return DraftResult(
-            course_id=course.id,
+            course_id=assignment.course_id,
             assignment_id=assignment.id,
             assignment_name=assignment.name,
             draft_path=draft_path,

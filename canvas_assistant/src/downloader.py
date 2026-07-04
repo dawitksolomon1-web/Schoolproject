@@ -1,12 +1,13 @@
 """
-Downloads and organizes course materials (files, module attachments,
-assignment attachments) into a predictable local folder structure so the
-knowledge base builder and draft generator can find them:
+Downloads and organizes materials the scraper discovered, and supports a
+dry-run mode that only reports what WOULD be downloaded.
 
+Layout:
 data/raw/<course>/
-    files/                  <- everything under Canvas "Files"
-    modules/<module_name>/  <- module-attached files (slides, notes, rubrics)
-    assignments/<assignment>/ <- assignment attachments
+    assignments/<assignment>/instructions.md   <- saved assignment instructions
+    assignments/<assignment>/<attachment>      <- assignment attachments
+    modules/<file>                             <- module-attached files
+    files/<file>                               <- files from the Files section
 """
 from __future__ import annotations
 
@@ -15,13 +16,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from config import RAW_DIR
-from src.canvas_client import CanvasClient
+from src.browser_session import BrowserSession
 from src.models import Assignment, Course
+from src.scraper import RemoteFile
 from src.utils import slugify
 
 logger = logging.getLogger("canvas_assistant.downloader")
 
-DOWNLOADABLE_EXTENSIONS = {
+INDEXABLE_EXTENSIONS = {
     ".pdf", ".ppt", ".pptx", ".doc", ".docx", ".txt", ".md",
     ".csv", ".xlsx", ".xls", ".rtf", ".odt",
 }
@@ -32,106 +34,77 @@ class DownloadedMaterial:
     path: Path
     course_id: int
     course_name: str
-    category: str  # "course_file" | "module_file" | "assignment_attachment"
+    category: str  # "module_file" | "course_file" | "assignment_attachment" | "instructions"
     source_name: str
 
 
-def _course_dir(course: Course) -> Path:
+def course_dir(course: Course) -> Path:
     return RAW_DIR / f"{course.id}_{slugify(course.name)}"
 
 
-def _is_indexable(name: str) -> bool:
-    return Path(name).suffix.lower() in DOWNLOADABLE_EXTENSIONS
+def _wanted(name: str) -> bool:
+    return Path(name).suffix.lower() in INDEXABLE_EXTENSIONS
 
 
-class FileDownloader:
-    def __init__(self, client: CanvasClient):
-        self.client = client
+class MaterialDownloader:
+    def __init__(self, session: BrowserSession, dry_run: bool = False):
+        self.session = session
+        self.dry_run = dry_run
+        self.planned: list[str] = []  # human-readable dry-run report lines
 
-    def download_course_files(self, course: Course) -> list[DownloadedMaterial]:
-        """Everything listed under the course's Files section."""
+    def save_instructions(self, course: Course, assignment: Assignment
+                            ) -> DownloadedMaterial | None:
+        if not assignment.description.strip():
+            return None
+        dest = course_dir(course) / "assignments" / slugify(assignment.name) / "instructions.md"
+        if self.dry_run:
+            self.planned.append(f"[instructions] {course.name} / {assignment.name}")
+            return None
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(
+            f"# {assignment.name}\n\nCourse: {course.name}\n"
+            f"Due: {assignment.due_text or 'not listed'}\nURL: {assignment.url}\n\n"
+            f"{assignment.description}\n"
+        )
+        return DownloadedMaterial(dest, course.id, course.name, "instructions", assignment.name)
+
+    def download_assignment_attachments(self, course: Course, assignment: Assignment
+                                          ) -> list[DownloadedMaterial]:
         results: list[DownloadedMaterial] = []
-        dest_root = _course_dir(course) / "files"
-        for f in self.client.get_files(course.id):
-            name = f.get("display_name", f"file_{f.get('id')}")
-            if not _is_indexable(name):
-                continue
-            dest = dest_root / name
-            if not dest.exists():
-                try:
-                    self.client.download_file(f["url"], dest)
-                except Exception:
-                    logger.exception("Failed to download course file %s", name)
-                    continue
-            results.append(DownloadedMaterial(dest, course.id, course.name, "course_file", name))
-        return results
-
-    def download_module_files(self, course: Course) -> list[DownloadedMaterial]:
-        """Slides, instructor notes, and other files attached to modules."""
-        results: list[DownloadedMaterial] = []
-        for module in self.client.get_modules(course.id):
-            module_name = slugify(module.get("name", f"module_{module.get('id')}"))
-            for item in module.get("items", []) or []:
-                if item.get("type") != "File":
-                    continue
-                content_id = item.get("content_id")
-                if content_id is None:
-                    continue
-                # Module items reference a file by id; fetch its metadata via the
-                # course files listing already cached on the client is avoided here
-                # to keep this call simple — Canvas exposes a direct file endpoint.
-                try:
-                    file_meta = self.client.get_file_metadata(content_id)
-                except Exception:
-                    logger.exception("Could not resolve module file %s", content_id)
-                    continue
-                name = file_meta.get("display_name", f"file_{content_id}")
-                if not _is_indexable(name):
-                    continue
-                dest = _course_dir(course) / "modules" / module_name / name
-                if not dest.exists():
-                    try:
-                        self.client.download_file(file_meta["url"], dest)
-                    except Exception:
-                        logger.exception("Failed to download module file %s", name)
-                        continue
-                results.append(
-                    DownloadedMaterial(dest, course.id, course.name, "module_file", name)
-                )
-        return results
-
-    def download_assignment_attachments(
-        self, course: Course, assignment: Assignment
-    ) -> list[DownloadedMaterial]:
-        """Attachments on an assignment (instructions, rubric files, templates)."""
-        results: list[DownloadedMaterial] = []
-        if not assignment.attachments:
-            return results
-        dest_root = _course_dir(course) / "assignments" / slugify(assignment.name)
         for att in assignment.attachments:
-            if not _is_indexable(att.display_name):
+            dest = course_dir(course) / "assignments" / slugify(assignment.name) / att.name
+            if self.dry_run:
+                self.planned.append(f"[attachment] {course.name} / {assignment.name} / {att.name}")
                 continue
-            dest = dest_root / att.display_name
-            if not dest.exists():
-                try:
-                    self.client.download_file(att.url, dest)
-                except Exception:
-                    logger.exception("Failed to download attachment %s", att.display_name)
-                    continue
-            results.append(
-                DownloadedMaterial(
-                    dest, course.id, course.name, "assignment_attachment", att.display_name
-                )
-            )
+            material = self._fetch(att.url, dest, course, "assignment_attachment", att.name)
+            if material:
+                results.append(material)
         return results
 
-    def download_all(self, courses: list[Course], assignments_by_course: dict[int, list[Assignment]]
-                      ) -> list[DownloadedMaterial]:
-        """Convenience entry point used by the CLI's `sync` command."""
-        all_materials: list[DownloadedMaterial] = []
-        for course in courses:
-            all_materials += self.download_course_files(course)
-            all_materials += self.download_module_files(course)
-            for assignment in assignments_by_course.get(course.id, []):
-                all_materials += self.download_assignment_attachments(course, assignment)
-        return all_materials
+    def download_remote_files(self, course: Course, files: list[RemoteFile]
+                                ) -> list[DownloadedMaterial]:
+        results: list[DownloadedMaterial] = []
+        for rf in files:
+            if not _wanted(rf.name):
+                continue
+            subdir = "modules" if rf.category == "module_file" else "files"
+            dest = course_dir(course) / subdir / rf.name
+            if self.dry_run:
+                self.planned.append(f"[{rf.category}] {course.name} / {rf.name}")
+                continue
+            material = self._fetch(rf.url, dest, course, rf.category, rf.name)
+            if material:
+                results.append(material)
+        return results
+
+    def _fetch(self, url: str, dest: Path, course: Course, category: str, name: str
+                ) -> DownloadedMaterial | None:
+        if dest.exists():
+            return DownloadedMaterial(dest, course.id, course.name, category, name)
+        body = self.session.fetch_binary(url)
+        if body is None:
+            return None
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(body)
+        logger.info("Downloaded %s -> %s", name, dest)
+        return DownloadedMaterial(dest, course.id, course.name, category, name)
