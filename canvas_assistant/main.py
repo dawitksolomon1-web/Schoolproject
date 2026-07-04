@@ -9,10 +9,15 @@ and it never touches quizzes.
 
 Commands:
     python main.py login             # open Chrome, log in manually, save the session
-    python main.py dashboard         # read the Canvas dashboard, list incoming work
+    python main.py session-debug     # print session diagnostics + save a screenshot
+    python main.py dashboard         # list incoming work (Courses page is the source of truth)
     python main.py sync              # download instructions/attachments/materials + build knowledge base
     python main.py draft --confirm   # generate local draft files (dry-run without --confirm)
     python main.py all [--dry-run]   # full pipeline (dry-run is the default; --confirm to run it)
+
+Course discovery goes through CANVAS_BASE_URL/courses -> <course_url>/assignments,
+NOT the dashboard — so it works with Course Cards, Planner/Timeline, or Recent
+Activity dashboards alike. The Planner is only read as a fallback summary.
 """
 from __future__ import annotations
 
@@ -151,9 +156,15 @@ def cmd_login() -> None:
 
 
 def cmd_dashboard() -> None:
+    planner_items = []
     with BrowserSession(headless=True) as session:
         session.ensure_logged_in()
-        work = detect_work(CanvasScraper(session))
+        scraper = CanvasScraper(session)
+        work = detect_work(scraper)
+        if not work.all_assignments():
+            # Primary path (Courses page -> Assignments pages) found nothing;
+            # fall back to a quick summary read off the Planner/Timeline.
+            planner_items = scraper.get_planner_summary()
     print(f"\nCourses: {len(work.courses)} | Assignments: {len(work.all_assignments())} "
           f"| Upcoming: {len(work.upcoming)} | Past due: {len(work.past_due)}")
     if work.new_items:
@@ -161,6 +172,54 @@ def cmd_dashboard() -> None:
     if work.due_date_changes:
         print(f"Due-date changes: {len(work.due_date_changes)}")
     write_dashboard(work)
+    if planner_items:
+        print("\nCourse/assignment pages yielded nothing, but the Planner timeline shows:")
+        for item in planner_items:
+            hint = f" [{item.course_hint}]" if item.course_hint else ""
+            pts = f" ({item.points_text})" if item.points_text else ""
+            print(f"  - {item.title}{pts} — due {item.due_text}{hint}")
+        print("If this list looks right but courses/assignments are empty, run "
+              "`python main.py session-debug` and share the output.")
+
+
+def cmd_session_debug() -> None:
+    """Print session diagnostics and save a screenshot to data/debug/."""
+    from config import DATA_DIR
+
+    debug_dir = DATA_DIR / "debug"
+    debug_dir.mkdir(parents=True, exist_ok=True)
+    screenshot_path = debug_dir / "session-debug.png"
+
+    with BrowserSession(headless=True) as session:
+        info = session.debug_info()
+        courses = []
+        courses_reachable = False
+        if info["authenticated"]:
+            scraper = CanvasScraper(session)
+            courses = scraper.get_courses()
+            courses_reachable = "/courses" in session.page.url or bool(courses)
+            # leave the browser on /courses (or wherever discovery ended) and
+            # then go back to the dashboard for a representative screenshot
+            session._safe_goto(session.base_url, timeout=30000)
+        try:
+            session.page.screenshot(path=str(screenshot_path), full_page=True)
+        except Exception as exc:
+            screenshot_path = None
+            logger.warning("Could not save screenshot: %s", exc)
+
+    print("\n=== Canvas session debug ===")
+    print(f"final URL:            {info['final_url']}")
+    print(f"page title:           {info['page_title']}")
+    print(f"detected host:        {info['detected_host']} (expected: {info['canvas_host']})")
+    print(f"authenticated UI:     {info['authenticated']}")
+    print(f"dashboard layout:     {info['dashboard_layout']}")
+    print(f"/courses reachable:   {courses_reachable}")
+    print(f"courses found:        {len(courses)}")
+    for c in courses:
+        print(f"  - [{c.id}] {c.name}")
+    print(f"screenshot:           {screenshot_path or 'failed to capture'}")
+    if not info["authenticated"]:
+        print("\nNot authenticated — run `python main.py login` first.")
 
 
 def cmd_sync() -> None:
@@ -233,9 +292,10 @@ def main() -> None:
         description="Browser-based Canvas homework assistant (read-only, draft-only)."
     )
     parser.add_argument(
-        "command", choices=["login", "dashboard", "sync", "draft", "all"],
-        help="login: save your Canvas session | dashboard: list incoming work | "
-              "sync: download materials | draft: create local drafts | all: full pipeline",
+        "command", choices=["login", "session-debug", "dashboard", "sync", "draft", "all"],
+        help="login: save your Canvas session | session-debug: print session diagnostics | "
+              "dashboard: list incoming work | sync: download materials | "
+              "draft: create local drafts | all: full pipeline",
     )
     parser.add_argument("--confirm", action="store_true",
                         help="Actually generate drafts (draft/all default to dry-run).")
@@ -250,6 +310,8 @@ def main() -> None:
 
     if args.command == "login":
         cmd_login()
+    elif args.command == "session-debug":
+        cmd_session_debug()
     elif args.command == "dashboard":
         cmd_dashboard()
     elif args.command == "sync":

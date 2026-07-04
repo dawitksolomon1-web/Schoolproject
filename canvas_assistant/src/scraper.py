@@ -52,6 +52,15 @@ class RemoteFile:
     category: str  # "module_file" | "course_file" | "assignment_attachment"
 
 
+@dataclass
+class PlannerItem:
+    """An item read off the Planner/Timeline dashboard (fallback summary only)."""
+    title: str
+    due_text: str
+    course_hint: str = ""
+    points_text: str = ""
+
+
 class CanvasScraper:
     def __init__(self, session: BrowserSession):
         self.session = session
@@ -80,9 +89,13 @@ class CanvasScraper:
     # -- courses ------------------------------------------------------------
 
     def get_courses(self) -> list[Course]:
-        courses = self._courses_from_dashboard_cards()
+        """Enrolled courses. The /courses page is the primary source of truth
+        (it exists for every user regardless of dashboard layout); dashboard
+        course cards are only a fallback."""
+        courses = self._courses_from_courses_page()
         if not courses:
-            courses = self._courses_from_courses_page()
+            logger.info("/courses yielded nothing — falling back to dashboard cards.")
+            courses = self._courses_from_dashboard_cards()
         logger.info("Found %d course(s).", len(courses))
         return courses
 
@@ -108,21 +121,45 @@ class CanvasScraper:
         if not self._goto("/courses"):
             return []
         courses: dict[int, Course] = {}
-        for link in self.page.locator("#my_courses_table a[href*='/courses/']").all():
-            href = link.get_attribute("href") or ""
-            match = re.fullmatch(r".*?/courses/(\d+)", href)
-            if not match:
+
+        def collect(scope_selector: str, active: bool) -> None:
+            for link in self.page.locator(f"{scope_selector} a[href*='/courses/']").all():
+                try:
+                    href = link.get_attribute("href") or ""
+                    match = re.fullmatch(r".*?/courses/(\d+)", href)
+                    if not match:
+                        continue
+                    cid = int(match.group(1))
+                    name = (link.inner_text() or "").strip()
+                    if cid not in courses and name:
+                        courses[cid] = Course(cid, name, urljoin(self.base_url, href), active=active)
+                except Exception:
+                    continue
+
+        # Which ids belong to past enrollments (to exclude from fallbacks)?
+        past_ids: set[int] = set()
+        for link in self.page.locator("#past_enrollments_table a[href*='/courses/']").all():
+            try:
+                match = re.fullmatch(r".*?/courses/(\d+)", link.get_attribute("href") or "")
+                if match:
+                    past_ids.add(int(match.group(1)))
+            except Exception:
                 continue
-            cid = int(match.group(1))
-            name = (link.inner_text() or "").strip()
-            if cid not in courses and name:
-                courses[cid] = Course(cid, name, urljoin(self.base_url, href))
+
+        # Current enrollments first ("My Courses" table).
+        collect("#my_courses_table", active=True)
+        if not courses:
+            # Theme without the classic table — take any course link in the
+            # content area, minus known past enrollments.
+            collect("#content", active=True)
+            for pid in past_ids:
+                courses.pop(pid, None)
         return list(courses.values())
 
     # -- assignments ---------------------------------------------------------
 
     def get_assignments(self, course: Course) -> list[Assignment]:
-        """Scrape the course's assignment index (graded discussions included)."""
+        """Scrape <course_url>/assignments (graded discussions included)."""
         if not self._goto(f"/courses/{course.id}/assignments"):
             return []
         try:
@@ -131,43 +168,142 @@ class CanvasScraper:
             logger.info("No assignments visible for %s", course.name)
             return []
 
-        assignments = []
-        for item in self.page.locator("div.assignment").all():
-            try:
-                elem_id = item.get_attribute("id") or ""
-                match = re.search(r"assignment_(\d+)", elem_id)
-                title_link = item.locator("a.ig-title").first
-                href = title_link.get_attribute("href") or ""
-                name = (title_link.inner_text() or "").strip()
-                if not name or not href:
-                    continue
-                if not match:
-                    match = re.search(r"/assignments/(\d+)", href)
-                    if not match:
-                        continue
-                due_text = ""
-                due_locator = item.locator(".assignment-date-due")
-                if due_locator.count() > 0:
-                    due_text = (due_locator.first.inner_text() or "").strip()
-                is_discussion = "/discussion_topics/" in href or item.locator(
-                    "i.icon-discussion"
-                ).count() > 0
-                assignments.append(
-                    Assignment(
-                        id=int(match.group(1)),
-                        course_id=course.id,
-                        course_name=course.name,
-                        name=name,
-                        url=urljoin(self.base_url, href),
-                        due_at=parse_due_text(due_text),
-                        due_text=due_text,
-                        is_discussion=is_discussion,
-                    )
-                )
-            except Exception:
-                logger.exception("Failed to parse an assignment row in %s", course.name)
+        assignments: list[Assignment] = []
+        groups = self.page.locator("div.assignment_group").all()
+        if groups:
+            for group in groups:
+                group_name = ""
+                header = group.locator(".ig-header-title, .ig-header h2, .ig-header h3")
+                if header.count() > 0:
+                    try:
+                        group_name = (header.first.inner_text() or "").strip()
+                    except Exception:
+                        pass
+                for item in group.locator("div.assignment").all():
+                    parsed = self._parse_assignment_row(item, course, group_name)
+                    if parsed:
+                        assignments.append(parsed)
+        else:
+            for item in self.page.locator("div.assignment").all():
+                parsed = self._parse_assignment_row(item, course, "")
+                if parsed:
+                    assignments.append(parsed)
         logger.info("%s: %d assignment(s) found.", course.name, len(assignments))
         return assignments
+
+    def _parse_assignment_row(self, item, course: Course, group_name: str
+                                ) -> Assignment | None:
+        try:
+            elem_id = item.get_attribute("id") or ""
+            match = re.search(r"assignment_(\d+)", elem_id)
+            title_link = item.locator("a.ig-title").first
+            href = title_link.get_attribute("href") or ""
+            name = (title_link.inner_text() or "").strip()
+            if not name or not href:
+                return None
+            if not match:
+                match = re.search(r"/assignments/(\d+)", href)
+                if not match:
+                    return None
+            due_text = ""
+            due_locator = item.locator(".assignment-date-due")
+            if due_locator.count() > 0:
+                due_text = (due_locator.first.inner_text() or "").strip()
+
+            row_text = ""
+            try:
+                row_text = item.inner_text() or ""
+            except Exception:
+                pass
+            points_match = re.search(r"(\d[\d,.]*)\s*pts", row_text)
+            points_text = f"{points_match.group(1)} pts" if points_match else ""
+
+            status_text = ""
+            status_locator = item.locator(".submission-status, [class*='submission_status']")
+            if status_locator.count() > 0:
+                try:
+                    status_text = (status_locator.first.inner_text() or "").strip()
+                except Exception:
+                    pass
+
+            is_discussion = "/discussion_topics/" in href or item.locator(
+                "i.icon-discussion"
+            ).count() > 0
+            return Assignment(
+                id=int(match.group(1)),
+                course_id=course.id,
+                course_name=course.name,
+                name=name,
+                url=urljoin(self.base_url, href),
+                due_at=parse_due_text(due_text),
+                due_text=due_text,
+                is_discussion=is_discussion,
+                points_text=points_text,
+                group=group_name,
+                status_text=status_text,
+            )
+        except Exception:
+            logger.exception("Failed to parse an assignment row in %s", course.name)
+            return None
+
+    # -- planner / timeline dashboard (fallback summary only) ----------------
+
+    _PLANNER_LINE = re.compile(
+        r"^(?:assignment|discussion|graded discussion)\s+(?P<title>.+?),\s*due\s+(?P<due>.+)$",
+        re.IGNORECASE,
+    )
+    _COURSE_CONTEXT = re.compile(r"^[A-Z]{2,}[\w-]*\s*[:—-]\s+\S")
+
+    def get_planner_summary(self) -> list[PlannerItem]:
+        """Read assignment items off the Planner/Timeline dashboard.
+
+        This is a FALLBACK/quick summary only — the Courses page ->
+        Assignments page path is the primary source of truth. Works off the
+        rendered text so it survives Planner markup changes:
+
+            ENAE441-WB11: Space Navigation and Guidance-Summer I 2026
+            Assignment Homework 4, due Monday, July 6, 2026 11:00 PM
+            Homework 4
+            100 pts
+        """
+        if not self._goto("/"):
+            return []
+        try:
+            body_text = self.page.locator("body").inner_text(timeout=8000)
+        except Exception:
+            return []
+
+        items: list[PlannerItem] = []
+        seen: set[str] = set()
+        course_hint = ""
+        lines = [ln.strip() for ln in body_text.splitlines() if ln.strip()]
+        for i, line in enumerate(lines):
+            if self._COURSE_CONTEXT.match(line):
+                course_hint = line
+                continue
+            match = self._PLANNER_LINE.match(line)
+            if not match:
+                continue
+            title = match.group("title").strip()
+            if title.lower() in seen:
+                continue
+            seen.add(title.lower())
+            points_text = ""
+            for follow in lines[i + 1:i + 4]:  # points usually follow within a couple lines
+                points_match = re.fullmatch(r"(\d[\d,.]*)\s*pts", follow, re.IGNORECASE)
+                if points_match:
+                    points_text = f"{points_match.group(1)} pts"
+                    break
+            items.append(
+                PlannerItem(
+                    title=title,
+                    due_text=match.group("due").strip(),
+                    course_hint=course_hint,
+                    points_text=points_text,
+                )
+            )
+        logger.info("Planner summary: %d item(s).", len(items))
+        return items
 
     def fill_assignment_detail(self, assignment: Assignment) -> Assignment:
         """Open the assignment page and read its instructions + attachments."""

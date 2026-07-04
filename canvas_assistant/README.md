@@ -23,7 +23,8 @@ then stops. Submitting anything is always your manual step in Canvas.
 
 ```bash
 python main.py login             # opens Chrome; log in manually (SSO/2FA fine); session is saved
-python main.py dashboard         # reads your Canvas dashboard/courses, lists incoming work
+python main.py session-debug     # prints session diagnostics + saves data/debug/session-debug.png
+python main.py dashboard         # lists incoming work (Courses page -> Assignments pages)
 python main.py sync              # downloads instructions, attachments, module/files/pages materials
 python main.py draft             # DRY RUN: lists assignments that would get drafts
 python main.py draft --confirm   # actually generates local draft files
@@ -39,10 +40,17 @@ Add `--force` to regenerate drafts that already exist.
    (SSO and 2FA both work — the assistant never sees or stores your
    password). The session lives in a persistent Chrome profile under
    `data/browser_profile/` and is reused by every later command, headless.
-2. `dashboard` visits your dashboard/course list, opens each course's
-   assignments page, and extracts assignments (including graded discussions),
-   due dates, upcoming work, and past-due work. It diffs against the previous
-   run to flag new assignments and due-date changes.
+2. `dashboard` discovers courses from the **/courses page** (not your
+   dashboard, so it works with Course Cards, Planner/Timeline, or Recent
+   Activity layouts alike), opens each course's assignments page, and
+   extracts assignments (including graded discussions), due dates, points,
+   assignment groups, upcoming work, and past-due work. It diffs against the
+   previous run to flag new assignments and due-date changes. If the
+   assignment pages yield nothing, a quick summary is read off the
+   Planner/Timeline as a fallback.
+   If detection misbehaves, `session-debug` prints where the browser landed,
+   whether it sees authenticated Canvas UI, which dashboard layout you have,
+   and how many courses it can find — plus a screenshot under `data/debug/`.
 3. `sync` opens each assignment page to read the instructions and download
    attachments, then collects course materials from Modules, Files, and
    Pages. Everything lands under `data/raw/<course>/...`, and readable text

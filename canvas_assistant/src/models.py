@@ -12,6 +12,7 @@ class Course:
     id: int
     name: str
     url: str = ""
+    active: bool = True  # from the "My Courses" table (vs. past enrollments)
 
 
 @dataclass
@@ -32,6 +33,9 @@ class Assignment:
     description: str = ""                   # instructions, filled in during sync
     attachments: list[Attachment] = field(default_factory=list)
     is_discussion: bool = False
+    points_text: str = ""                   # e.g. "100 pts" (as shown on the page)
+    group: str = ""                         # assignment group header, if visible
+    status_text: str = ""                   # submission status, if visible
 
     def is_past_due(self, now: Optional[datetime] = None) -> bool:
         now = now or datetime.now()
@@ -46,24 +50,39 @@ class Assignment:
 
 
 _DUE_FORMATS = (
+    # abbreviated month (assignments index): "Jun 5 at 11:59pm"
     "%b %d, %Y %I:%M%p",
     "%b %d %I:%M%p",
     "%b %d, %Y",
     "%b %d",
+    # full month (Planner/Timeline): "July 6, 2026 11:00 PM"
+    "%B %d, %Y %I:%M%p",
+    "%B %d %I:%M%p",
+    "%B %d, %Y",
+    "%B %d",
     "%m/%d/%Y %I:%M%p",
     "%m/%d/%Y",
 )
 
+_WEEKDAY_PREFIX = re.compile(
+    r"^(mon|tues|wednes|thurs|fri|satur|sun)day,?\s+", re.IGNORECASE
+)
+
 
 def parse_due_text(text: str) -> Optional[datetime]:
-    """Best-effort parse of Canvas due-date strings like 'Due Jun 5 at 11:59pm'."""
+    """Best-effort parse of Canvas due-date strings.
+
+    Handles both the assignments-index style ("Due Jun 5 at 11:59pm") and the
+    Planner/Timeline style ("due Monday, July 6, 2026 11:00 PM")."""
     if not text:
         return None
     cleaned = text.strip()
     if "multiple" in cleaned.lower():
         return None
     cleaned = re.sub(r"^\s*due\b[:\s]*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = _WEEKDAY_PREFIX.sub("", cleaned)
     cleaned = cleaned.replace(" at ", " ").replace(" by ", " ")
+    cleaned = re.sub(r"\s+([AaPp][Mm])\b", r"\1", cleaned)  # "11:00 PM" -> "11:00PM"
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     now = datetime.now()
     for fmt in _DUE_FORMATS:

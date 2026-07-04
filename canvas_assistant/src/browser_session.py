@@ -20,10 +20,33 @@ from config import BROWSER_PROFILE_DIR, CANVAS_BASE_URL, require_base_url
 
 logger = logging.getLogger("canvas_assistant.browser")
 
+# Any ONE of these means we're looking at authenticated Canvas UI. The
+# dashboard layout varies per user (Course Cards vs Planner/Timeline vs
+# Recent Activity), so we accept the global navigation and either layout —
+# course cards are NOT required.
 LOGGED_IN_MARKERS = (
-    "#global_nav_profile_link",   # Canvas global left nav (logged-in only)
-    ".ic-DashboardCard",          # dashboard course cards
+    "#global_nav_profile_link",        # global left nav (logged-in only)
+    "#global_nav_courses_link",
+    "#global_nav_dashboard_link",
+    "#global_nav_calendar_link",
+    "#global_nav_conversations_link",  # Inbox
+    ".ic-DashboardCard",               # Course Cards dashboard
+    ".PlannerApp",                     # Planner/Timeline dashboard
+    "#dashboard-planner",
+    "#planner-today-btn",
     "#dashboard",
+)
+
+# Fallback: text that only shows up inside authenticated Canvas UI.
+LOGGED_IN_TEXT_HINTS = (
+    "nothing planned yet",
+    "no more items to show",
+    "dashboard",
+    "courses",
+    "calendar",
+    "inbox",
+    "assignment",
+    "announcement",
 )
 
 # SSO logins bounce through the university's identity provider (Shibboleth,
@@ -165,7 +188,46 @@ class BrowserSession:
                     return True
             except Exception:
                 continue
-        return False
+        # Marker selectors are theme-dependent; fall back to text that only
+        # appears in authenticated Canvas UI (we're already on the Canvas
+        # host and not on /login at this point).
+        try:
+            body_text = self.page.locator("body").inner_text(timeout=3000).lower()
+        except Exception:
+            return False
+        return any(hint in body_text for hint in LOGGED_IN_TEXT_HINTS)
+
+    def detect_dashboard_layout(self) -> str:
+        """'course_cards' | 'planner' | 'unknown' — purely informational."""
+        try:
+            if self.page.locator(".ic-DashboardCard").count() > 0:
+                return "course_cards"
+            if (self.page.locator(".PlannerApp, #dashboard-planner, #planner-today-btn").count() > 0):
+                return "planner"
+            body_text = self.page.locator("body").inner_text(timeout=3000).lower()
+            if "nothing planned yet" in body_text or "no more items to show" in body_text:
+                return "planner"
+        except Exception:
+            pass
+        return "unknown"
+
+    def debug_info(self) -> dict:
+        """Snapshot of the session state for `main.py session-debug`."""
+        from urllib.parse import urlparse
+
+        self._safe_goto(self.base_url, timeout=30000)
+        try:
+            title = self.page.title()
+        except Exception:
+            title = "(unavailable)"
+        return {
+            "final_url": self.page.url,
+            "page_title": title,
+            "detected_host": urlparse(self.page.url).netloc,
+            "canvas_host": urlparse(self.base_url).netloc,
+            "authenticated": self._looks_logged_in(),
+            "dashboard_layout": self.detect_dashboard_layout(),
+        }
 
     # -- read-only fetch helper --------------------------------------------
 
