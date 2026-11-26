@@ -8,396 +8,238 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
 <style>
-/* VOICE work: a strategy brief for an owner deciding where to put money
-   IDEA a new car's window sticker / build sheet: standard equipment, options, price, verdicts
-   PICTURE a live unit-economics bar: what one customer is worth vs what we can pay to win them
-   COLOUR white sticker paper, black ink, signal red for the money line, silver for rules and fields
-   TYPE Archivo expanded 800 for display, Archivo normal for text
-   LAYOUT title + finding across the top, the live bar full width under it, controls beneath; stacks on phones */
-:root{color-scheme:light dark;--bg:light-dark(#ffffff,#121417);--ink:light-dark(#111214,#eef0f2);--mute:light-dark(#5b6068,#a3a9b2);--rule:light-dark(#d9dce1,#2c3036);--field:light-dark(#f1f2f4,#1b1e22);--red:light-dark(#d7261e,#ff5a4e);--blue:light-dark(#1f3fa8,#7f9cff);--silver:light-dark(#9aa1ab,#6c737d);--ok:light-dark(#111214,#eef0f2)}
+/* VOICE work: a one-page plan an owner can judge at a glance
+   IDEA the booking flow itself, drawn as phone screens: the plan is what the customer taps through
+   PICTURE five phone renders of the checkout, ceramic offered at three moments, marked in red
+   COLOUR white ground, black ink, signal red for every ceramic touchpoint, silver fields
+   TYPE Archivo expanded 800 display, Archivo text
+   LAYOUT title and one-line verdict, then the phone strip full width; numbers, competitors, steps below; phones scroll sideways on small screens */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#121417);--ink:light-dark(#111214,#eef0f2);--mute:light-dark(#5b6068,#a3a9b2);--rule:light-dark(#d9dce1,#2c3036);--field:light-dark(#f1f2f4,#1b1e22);--red:light-dark(#d7261e,#ff5a4e);--redbg:light-dark(#fdeceb,#3a1a18);--phone:light-dark(#ffffff,#1b1e22)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
-html{scroll-padding-top:72px}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Archivo,system-ui,sans-serif;font-stretch:100%;overflow-x:clip}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Archivo,system-ui,sans-serif;overflow-x:clip}
 .band{padding:clamp(28px,4vw,56px) max(5vw,16px)}
 .wrap{max-width:1240px;margin:0 auto}
 h1,h2,h3{font-stretch:125%;font-weight:800;line-height:1.05;letter-spacing:-.02em;text-wrap:balance;margin:0}
-h1{font-size:clamp(32px,5vw,52px)}
-h2{font-size:clamp(24px,3vw,34px);margin-bottom:12px}
+h1{font-size:clamp(32px,5vw,50px);max-width:20ch}
+h2{font-size:clamp(24px,3vw,32px);margin-bottom:14px}
 h3{font-size:18px;margin-bottom:6px}
-p{margin:0 0 12px;max-width:68ch}
-.lede{font-size:18px;max-width:62ch;margin:0}
-.mute{color:var(--mute)}
-.small{font-size:13px}
-nav.scroll{display:flex;gap:4px;overflow-x:auto;padding:10px max(5vw,16px);border-block:1px solid var(--rule);background:var(--bg)}
-nav.scroll a{flex:none;color:var(--ink);text-decoration:none;padding:10px 12px;border-radius:6px;font-size:14px;font-weight:600}
-nav.scroll a:hover,nav.scroll a:focus-visible{background:var(--field)}
-@media(min-width:900px){nav.scroll{position:sticky;top:0;z-index:5}}
-.sticker{border:2px solid var(--ink);border-radius:4px}
-.sticker>.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding:12px 16px;border-top:1px solid var(--rule)}
-.sticker>.row:first-child{border-top:0}
-.price{font-stretch:125%;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
-.hero{margin-top:18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(20px,4vw,48px);align-items:end}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(9em,1fr));gap:0;border:2px solid var(--ink);border-radius:4px}
-.kpi{padding:14px 16px;border-left:1px solid var(--rule)}
-.kpi:first-child{border-left:0}
-.kpi b{display:block;font-stretch:125%;font-size:clamp(24px,3.2vw,34px);line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap}
-.kpi span{font-size:13px;color:var(--mute)}
-.kpi.red b{color:var(--red)}
-.econ{margin-top:28px;background:var(--field);border-radius:4px;padding:clamp(16px,3vw,28px)}
-.barbox{position:relative;padding:34px 0 34px}
-.bar{display:flex;height:64px;border-radius:3px;overflow:hidden;background:var(--bg)}
-.seg{height:100%;transition:width .35s ease}
-.s1{background:var(--ink)}.s2{background:var(--blue)}.s3{background:var(--silver)}.s4{background:repeating-linear-gradient(135deg,var(--silver) 0 6px,transparent 6px 11px);border:1px solid var(--silver)}
-.mark{position:absolute;top:22px;bottom:22px;width:0;border-left:2px solid var(--red);transition:left .35s ease}
-.mark span{position:absolute;left:6px;white-space:nowrap;font-size:13px;font-weight:700;color:var(--red)}
-.mark.t span{top:-4px}.mark.c span{bottom:-4px}
-.mark.flip span{left:auto;right:6px}
-.axis{display:flex;justify-content:space-between;font-size:13px;color:var(--mute);font-variant-numeric:tabular-nums}
-.legend{display:flex;flex-wrap:wrap;gap:8px 22px;margin:14px 0 4px;font-size:14px}
-.legend i{display:inline-block;width:14px;height:14px;border-radius:2px;vertical-align:-2px;margin-right:6px}
-.ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(15em,1fr));gap:14px 28px;margin-top:20px}
-.ctrl label{display:flex;justify-content:space-between;gap:10px;font-size:14px;font-weight:600}
-.ctrl output{font-variant-numeric:tabular-nums;white-space:nowrap}
-input[type=range]{width:100%;height:44px;accent-color:var(--red);margin:0}
-input[type=range]:focus-visible{outline:2px solid var(--red);outline-offset:2px}
-.btn{font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 16px;border:2px solid var(--ink);border-radius:4px;background:var(--bg);color:var(--ink);cursor:pointer}
+p{margin:0 0 12px;max-width:70ch}
+.lede{font-size:18px;margin:16px 0 0;max-width:64ch}
+.mute{color:var(--mute)}.small{font-size:13px}
+.red{color:var(--red)}
+.alt{background:var(--field)}
+.strip{display:flex;gap:18px;overflow-x:auto;scroll-snap-type:x mandatory;padding:26px 2px 12px}
+.ph{flex:0 0 236px;scroll-snap-align:start;display:flex;flex-direction:column;gap:10px}
+.cap{font-size:14px;font-weight:700;display:flex;gap:8px;align-items:baseline}
+.cap i{font-style:normal;font-stretch:125%;font-weight:800;color:var(--mute)}
+.cap.hot,.cap.hot i{color:var(--red)}
+.scr{background:var(--phone);border:2px solid var(--ink);border-radius:26px;padding:16px 12px 14px;height:480px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;line-height:1.35;box-shadow:0 1px 0 var(--rule)}
+.scr .top{display:flex;justify-content:space-between;font-size:11px;color:var(--mute);margin-bottom:2px}
+.scr h4{font-stretch:125%;font-size:15px;line-height:1.15;margin:2px 0 4px}
+.in{border:1px solid var(--rule);border-radius:9px;padding:8px 10px;color:var(--mute)}
+.chips{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.chip{border:1px solid var(--rule);border-radius:9px;padding:8px 6px;text-align:center;font-weight:600}
+.chip.on{border:2px solid var(--ink)}
+.pk{border:1px solid var(--rule);border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:1fr auto;gap:2px 8px}
+.pk b{font-weight:700}.pk span.pr{grid-column:auto;color:var(--ink);font-size:12.5px;font-weight:800;white-space:nowrap;text-align:right}
+.pk span{grid-column:1/-1;color:var(--mute);font-size:11.5px}
+.pk.best{border:2px solid var(--red);background:var(--redbg)}
+.pk.best b{align-self:center}.pk.best em{grid-column:1/-1;font-style:normal;font-size:11px;font-weight:700;color:var(--red)}
+.tg{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;border-bottom:1px solid var(--rule);padding:7px 0}
+.tg.hot b{color:var(--red)}
+.sw{flex:none;width:30px;height:18px;border-radius:9px;background:var(--rule);position:relative}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--phone)}
+.sw.on{background:var(--red)}.sw.on::after{left:14px}
+.tot{margin-top:auto;display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--rule);padding-top:8px}
+.cta{background:var(--ink);color:var(--bg);border-radius:10px;padding:10px;text-align:center;font-weight:700}
+.cta.r{background:var(--red);color:#fff}
+.ghost{border:1px solid var(--rule);border-radius:10px;padding:9px;text-align:center;color:var(--mute)}
+.ok{width:40px;height:40px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;font-weight:800;margin:6px 0 2px}
+.sms{background:var(--field);border-radius:12px 12px 12px 3px;padding:9px 10px}
+.nav{display:flex;gap:8px;margin-top:4px}
+.btn{font:inherit;font-size:14px;font-weight:600;min-height:44px;min-width:44px;padding:0 14px;border:2px solid var(--ink);border-radius:4px;background:var(--bg);color:var(--ink);cursor:pointer}
 .btn:hover{background:var(--ink);color:var(--bg)}
-.btn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
-.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(17em,1fr));gap:20px}
-.card{border:1px solid var(--rule);border-radius:4px;padding:18px}
-.card.win{border:2px solid var(--ink)}
-.tag{display:inline-block;font-size:13px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--field);margin-bottom:8px}
-.tag.go{background:var(--red);color:#fff}
-ul{margin:6px 0 12px;padding-left:20px}
-li{margin:3px 0}
+.btn:focus-visible,input[type=range]:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:clamp(20px,4vw,48px);align-items:start}
+.rows{display:flex;flex-direction:column;gap:10px;margin:8px 0 14px}
+.r{display:grid;grid-template-columns:9.5em minmax(0,1fr) 5em;gap:10px;align-items:center;font-size:14px}
+.r .t{height:26px;border-radius:2px;background:var(--ink);transition:width .3s}
+.r .t.c{background:var(--red)}.r .t.n{background:var(--rule)}
+.r .v{text-align:right;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+.big{display:grid;grid-template-columns:repeat(auto-fit,minmax(9em,1fr));border:2px solid var(--ink);border-radius:4px}
+.big div{padding:12px 14px;border-left:1px solid var(--rule)}
+.big div:first-child{border-left:0}
+.big b{display:block;font-stretch:125%;font-size:clamp(22px,3vw,30px);line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.big span{font-size:13px;color:var(--mute)}
+.big .rd b{color:var(--red)}
+.ctrl label{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-top:14px}
+.ctrl output{white-space:nowrap;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;height:44px;accent-color:var(--red);margin:0}
 .scroll{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:15px}
 th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--rule)}
 th{font-size:13px;color:var(--mute);font-weight:600}
-td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-tr.pick td{background:var(--field)}
-tr.pick td:first-child{font-weight:800}
-.route{display:grid;grid-template-columns:repeat(auto-fit,minmax(10.5em,1fr));gap:0;border:2px solid var(--ink);border-radius:4px;counter-reset:st}
-.stop{padding:14px;border-left:1px solid var(--rule);position:relative}
-.stop:first-child{border-left:0}
-.stop b{display:block;font-stretch:125%;font-size:16px;margin-bottom:4px}
-.stop p{font-size:14px;margin:0}
-.stop.hot{background:var(--field)}
-.stop.hot b{color:var(--red)}
-.verdict{border-left:3px solid var(--red);padding:4px 0 4px 14px;margin:12px 0 0;font-weight:600;max-width:72ch}
-.alt{background:var(--field)}
-footer{border-top:2px solid var(--ink)}
-@media(max-width:760px){.hero{grid-template-columns:minmax(0,1fr)}}
-@media(max-width:600px){table{font-size:13px}th,td{padding:6px 4px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--rule)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:7.5em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7em;margin-inline-start:-7.5em;color:var(--mute);font-size:12px}.stack td:empty{display:none}.stop{border-left:0;border-top:1px solid var(--rule)}.stop:first-child{border-top:0}.kpi{border-left:0;border-top:1px solid var(--rule)}.kpi:first-child{border-top:0}}
-@media(prefers-reduced-motion:reduce){.seg,.mark{transition:none}}
+td.n,th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.us td{background:var(--redbg)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(16em,1fr));gap:20px}
+.card{border:1px solid var(--rule);border-radius:4px;padding:16px;background:var(--bg)}
+ol,ul{margin:6px 0 0;padding-left:20px}li{margin:4px 0}
+a{color:var(--ink)}
+.verdict{border-left:3px solid var(--red);padding:4px 0 4px 14px;margin-top:14px;font-weight:600;max-width:74ch}
+@media(max-width:760px){.grid2{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){table{font-size:13px}th,td{padding:6px 4px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--rule)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:7.5em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7em;margin-inline-start:-7.5em;color:var(--mute);font-size:12px}.stack td:empty{display:none}.big div{border-left:0;border-top:1px solid var(--rule)}.big div:first-child{border-top:0}.r{grid-template-columns:7.5em minmax(0,1fr) 4.2em;font-size:13px}}
+@media(prefers-reduced-motion:reduce){.r .t{transition:none}}
 </style>
 <script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
 </head>
 <body>
 
 <header class="band"><div class="wrap">
-  <h1 style="max-width:22ch">Premium mobile detailing: sell it, subcontract it, keep the spread</h1>
-  <div class="hero">
-    <div>
-      <p class="lede">The money is in the offer. Subcontracting cuts each job's margin roughly in half, so one detail alone can't fund aggressive ads. A front-end detail, a ceramic upsell sold on the spot, and a membership together make each customer worth about <b id="hLtv">$435</b> in gross profit. That lets us pay up to <b id="hCeil">$290</b> to win one.</p>
-    </div>
-    <div class="kpis" aria-live="polite">
-      <div class="kpi"><b id="kFront">$197</b><span>profit per front-end job</span></div>
-      <div class="kpi"><b id="k30">$292</b><span>profit in first 30 days</span></div>
-      <div class="kpi red"><b id="kTarget">$146</b><span>target CAC (2× payback)</span></div>
-    </div>
-  </div>
+  <h1>Copy Tilicare's checkout, then offer ceramic three times</h1>
+  <p class="lede">No subscription. The customer sees their price online, pays a $50 deposit, and a hired detailer shows up. The upcharge comes from offering <b class="red">12-month ceramic protection</b> at three automated moments, so it gets added without you there to sell it.</p>
 
-  <div class="econ" id="econ">
-    <h3>What one customer is worth (gross profit after paying the detailer and Stripe fees)</h3>
-    <div class="barbox" id="barbox">
-      <div class="bar" id="bar" role="img" aria-label="Stacked gross profit per customer">
-        <div class="seg s1" id="g1"></div><div class="seg s2" id="g2"></div><div class="seg s3" id="g3"></div><div class="seg s4" id="g4"></div>
-      </div>
-      <div class="mark t" id="mT"><span>Target CAC <b id="mTv"></b></span></div>
-      <div class="mark c" id="mC"><span>Max CAC, 30-day break-even <b id="mCv"></b></span></div>
-    </div>
-    <div class="axis"><span>$0</span><span>$300</span><span>$600</span><span>$900</span></div>
-    <div class="legend" id="legend"></div>
-    <div class="ctrls">
-      <div class="ctrl"><label for="price">Average Reset ticket <output id="oPrice"></output></label><input type="range" id="price" min="300" max="600" step="10" value="420"></div>
-      <div class="ctrl"><label for="sub">Detailer payout <output id="oSub"></output></label><input type="range" id="sub" min="35" max="65" step="1" value="50"></div>
-      <div class="ctrl"><label for="cer">Customers who add ceramic <output id="oCer"></output></label><input type="range" id="cer" min="0" max="30" step="1" value="10"></div>
-      <div class="ctrl"><label for="mem">Customers who join membership <output id="oMem"></output></label><input type="range" id="mem" min="0" max="50" step="1" value="20"></div>
-      <div class="ctrl"><label for="mon">Months a member stays <output id="oMon"></output></label><input type="range" id="mon" min="1" max="18" step="1" value="8"></div>
-      <div class="ctrl" style="align-self:end"><button class="btn" id="reset" type="button">Reset to plan assumptions</button></div>
-    </div>
-    <p class="small mute" style="margin-top:14px">Fixed in this model: ceramic averages $1,499 with 47% paid to the detailer; membership is $249/month for two visits at $70 each; Stripe fees are 3%. These are planning assumptions, not market data. Replace them with your real payouts once you've hired detailers.</p>
+  <div class="strip" id="strip" tabindex="0" aria-label="Booking flow screens">
+    <div class="ph"><div class="cap"><i>1</i> Instant price</div>
+      <div class="scr"><div class="top"><span>9:41</span><span>yourbrand.com</span></div>
+        <h4>See my price</h4>
+        <div class="in">Home address</div>
+        <div>Vehicle size</div>
+        <div class="chips"><div class="chip">Sedan / coupe</div><div class="chip on">5-seat SUV</div><div class="chip">7-seat SUV / van</div><div class="chip">Truck</div></div>
+        <div class="mute" style="margin-top:4px">Water and power included. No phone call needed.</div>
+        <div class="cta" style="margin-top:auto">See my price</div>
+      </div></div>
+
+    <div class="ph"><div class="cap hot"><i>2</i> Bundle shown first</div>
+      <div class="scr"><div class="top"><span>9:41</span><span>5-seat SUV</span></div>
+        <h4>Pick your clean</h4>
+        <div class="pk best"><em>Most chosen · save $29</em><b>Full + Ceramic</b><span class="pr">$489</span><span>Inside and out, plus 12-month ceramic gloss and water beading</span></div>
+        <div class="pk"><b>Full detail</b><span class="pr">$339</span><span>Interior and exterior</span></div>
+        <div class="pk"><b>Interior only</b><span class="pr">$229</span><span>Steam, vacuum, leather</span></div>
+        <div class="pk"><b>Exterior only</b><span class="pr">$169</span><span>Hand wash, wheels, wax</span></div>
+        <div class="cta" style="margin-top:auto">Continue</div>
+      </div></div>
+
+    <div class="ph"><div class="cap hot"><i>3</i> Add-ons before deposit</div>
+      <div class="scr"><div class="top"><span>9:41</span><span>Full detail</span></div>
+        <h4>Make it even better</h4>
+        <div class="tg hot"><span><b>12-month ceramic</b><br><span class="mute">Shown only if they skipped the bundle</span></span><span>+$179</span><span class="sw"></span></div>
+        <div class="tg"><span>Pet hair removal</span><span>+$49</span><span class="sw"></span></div>
+        <div class="tg"><span>Seat shampoo</span><span>+$79</span><span class="sw"></span></div>
+        <div class="tg"><span>Odor removal</span><span>+$79</span><span class="sw"></span></div>
+        <div class="tot"><span>Total</span><span>$339</span></div>
+        <div class="mute">Due today: $50 deposit, refundable. The rest is charged after the job.</div>
+        <div class="cta">Pay $50 deposit</div>
+      </div></div>
+
+    <div class="ph"><div class="cap hot"><i>4</i> One tap after paying</div>
+      <div class="scr"><div class="top"><span>9:41</span><span>Booked</span></div>
+        <div class="ok">✓</div>
+        <h4>You're booked for Sat, 10:00</h4>
+        <div class="pk best"><em>Today only, since we're already there</em><b>Add 12-month ceramic</b><span class="pr">$149</span><span>Usually $179. Nothing charged now; added to your balance after the job.</span></div>
+        <div class="cta r" style="margin-top:auto">Yes, protect my car</div>
+        <div class="ghost">No thanks</div>
+      </div></div>
+
+    <div class="ph"><div class="cap hot"><i>5</i> Reminder text</div>
+      <div class="scr"><div class="top"><span>9:41</span><span>Messages</span></div>
+        <h4>Day before</h4>
+        <div class="sms">Your detailer, Marcus, arrives tomorrow 10:00. Want your paint to bead water for the next 12 months? Reply YES to add ceramic for $149.</div>
+        <div class="sms" style="margin-left:auto;border-radius:12px 12px 3px 12px;background:var(--redbg)">YES</div>
+        <div class="sms">Done. Added to tomorrow's job. Total after service: $488.</div>
+        <div class="mute" style="margin-top:auto">After the job: before/after photos, review request, and a "20% off ceramic" offer if they still haven't added it.</div>
+      </div></div>
   </div>
+  <div class="nav"><button class="btn" id="prev" type="button" aria-label="Previous screen">←</button><button class="btn" id="next" type="button" aria-label="Next screen">→</button><span class="small mute" style="align-self:center">Mock-ups with example prices. Red marks each ceramic offer.</span></div>
 </div></header>
 
-<nav class="scroll" aria-label="Sections">
-  <a href="#model">Model</a><a href="#offer">Offer</a><a href="#options">Offer options</a><a href="#channels">Ad channels</a><a href="#funnel">Funnel</a><a href="#subs">Detailers</a><a href="#proof">Proof</a><a href="#copy">Ad copy</a><a href="#stack">Tools</a><a href="#launch">14-day launch</a><a href="#open">Open decisions</a>
-</nav>
-
-<section class="band" id="model"><div class="wrap">
-  <h2>How you make money: you sell and run the ads; contractors do the work</h2>
-  <div class="cols">
-    <div>
-      <p>You own the brand, the ads, the customer and the booking. Vetted independent detailers do the jobs at a flat rate, and you keep the difference. There's no labor on your payroll and no van to buy. Each job pays for itself before you add another detailer.</p>
-      <p>The trade-off: an owner-operator keeps about 85% of a $420 detail, while you keep about 47%. <b>So you can't out-margin them on one job. You win on volume and on the back end.</b> An owner-operator can do about 2 cars a day and can't absorb ad-driven volume. You can hire more detailers as fast as leads come in.</p>
-    </div>
-    <div class="sticker">
-      <div class="row"><span>Customer pays (Signature Reset, average)</span><span class="price" id="tPrice">$420</span></div>
-      <div class="row"><span>Detailer payout (flat rate)</span><span class="price" id="tSub">−$210</span></div>
-      <div class="row"><span>Stripe fees, about 3%</span><span class="price" id="tFee">−$13</span></div>
-      <div class="row"><span><b>Gross profit before ads</b></span><span class="price" id="tGp">$197</span></div>
+<section class="band alt"><div class="wrap grid2">
+  <div>
+    <h2>What one order makes</h2>
+    <p>Example: a 5-seat SUV Full detail at $339, with half paid to the detailer. Ceramic adds about an hour of work for them.</p>
+    <div class="rows" id="rows"></div>
+    <div class="big">
+      <div><b id="bGp">$199</b><span>profit per order, average</span></div>
+      <div class="rd"><b id="bCac">$100</b><span>target cost to win a customer</span></div>
+      <div><b id="bMax">$199</b><span>most you can pay (break-even)</span></div>
     </div>
   </div>
-  <p class="verdict">Rule: every customer must cover their ad cost within 30 days. Profit from upsells and the membership is the extra margin that lets you outbid competitors.</p>
-</div></section>
-
-<section class="band alt" id="offer"><div class="wrap">
-  <h2>The offer: a premium entry detail, ceramic sold on the spot, then a membership</h2>
-  <p>Built on Hormozi's value equation. Raise the dream outcome (a showroom-clean car) and the buyer's confidence (guarantee, insurance, photo report). Cut the waiting (this week) and the effort (we come to you, with our own water and power).</p>
-  <div class="cols">
-    <div class="card win">
-      <span class="tag go">Front end: gets the customer in</span>
-      <h3>The Signature Reset</h3>
-      <p class="price" style="white-space:normal">$349 sedan · $419 SUV · $489 truck/3-row</p>
-      <ul>
-        <li>Full interior: vacuum, steam, leather clean and condition, glass</li>
-        <li>Exterior: hand wash, iron and clay decontamination, 6-month sealant</li>
-        <li>Wheels, tires and wheel wells; door jambs</li>
-        <li>Before/after photo report texted to you</li>
-      </ul>
-      <p><b>Guarantee:</b> if it isn't the cleanest your car has been since you bought it, we come back and redo it free. Still not happy? You don't pay.</p>
-      <p><b>Bonuses:</b> headlight restoration or engine bay detail, plus a paint health check.</p>
-      <p><b>Scarcity:</b> a limited number of slots per area each week. This is honest, because it's your detailers' real capacity.</p>
-    </div>
-    <div class="card">
-      <span class="tag">Upsell: sold at the car</span>
-      <h3>Ceramic protection</h3>
-      <p><b class="price" style="white-space:normal">$999 · $1,499 · $2,199</b> (1, 3 and 5-year tiers)</p>
-      <p>The paint health check is the opening. The detailer shows the customer the swirls and water spots under a light and offers the coating. Ads never have to sell a $1,500 job, because the car makes the case.</p>
-      <p><b>Pay the detailer a commission of $100–150 for each ceramic job they close.</b> Without it, contractors won't pitch.</p>
-      <p class="small mute">Paint correction comes later, as a separate premium tier, once you have a detailer who can prove the skill. A bad correction on an expensive car becomes a damage claim.</p>
-    </div>
-    <div class="card">
-      <span class="tag">Back end: recurring revenue</span>
-      <h3>Concierge Membership</h3>
-      <p><b class="price">$249/month</b> for a maintenance detail every two weeks</p>
-      <ul>
-        <li>Keeps the car at Reset standard indefinitely</li>
-        <li>Members get priority booking and 15% off ceramic</li>
-        <li>Pitched right after the Reset: "join today and your next visit is free"</li>
-      </ul>
-      <p>About $100 a month in profit per member, and it compounds. Ten members cover a lot of ad spend. Two hundred is a business you could sell.</p>
-    </div>
+  <div class="card">
+    <h3>Try your own numbers</h3>
+    <div class="ctrl"><label for="att">Orders that add ceramic <output id="oAtt"></output></label><input type="range" id="att" min="0" max="70" value="35"></div>
+    <div class="ctrl"><label for="pay">Paid to the detailer <output id="oPay"></output></label><input type="range" id="pay" min="35" max="65" value="50"></div>
+    <div class="ctrl"><label for="ord">Full detail price <output id="oOrd"></output></label><input type="range" id="ord" min="249" max="449" step="10" value="339"></div>
+    <p class="small mute" style="margin-top:14px">Fixed: ceramic add-on $179, which costs about $60 in detailer pay and product; 3% card fees. With no subscription, the first order has to pay for the ad, so aim to spend about half the profit per order to win a customer.</p>
+    <button class="btn" id="rst" type="button">Reset</button>
   </div>
 </div></section>
 
-<section class="band" id="options"><div class="wrap">
-  <h2>Offer options compared: lead with the Reset</h2>
-  <div class="scroll">
-  <table class="stack">
-    <thead><tr><th>Lead offer</th><th>Ticket</th><th>Your profit per job</th><th>Ease of selling to ad traffic</th><th>Detailers available</th><th>Main risk</th><th>Verdict</th></tr></thead>
+<section class="band"><div class="wrap">
+  <h2>Price menu by vehicle size</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Package</th><th class="n">Sedan / coupe</th><th class="n">5-seat SUV</th><th class="n">7-seat SUV / van</th><th class="n">Truck</th></tr></thead>
     <tbody>
-      <tr class="pick"><td>A. Signature Reset detail</td><td class="n">$349–489</td><td class="n">about $200</td><td>High: an easy yes</td><td>Many</td><td>Thin margin per job unless upsells land</td><td>Lead with this</td></tr>
-      <tr><td>B. Ceramic coating first</td><td class="n">$999–2,199</td><td class="n">about $750</td><td>Low: long decisions, buyers compare quotes</td><td>Some</td><td>Few buyers, expensive leads</td><td>Upsell only</td></tr>
-      <tr><td>C. Membership first ("first month $99")</td><td class="n">$99, then $249/month</td><td class="n">negative in month 1</td><td>Medium</td><td>Many</td><td>Attracts deal-seekers who cancel</td><td>Back end only</td></tr>
-      <tr><td>D. Paint correction first</td><td class="n">$800–3,000</td><td class="n">$400–1,400</td><td>Low</td><td>Few skilled ones</td><td>Damage claims, inconsistent quality</td><td>Later, as a premium tier</td></tr>
-      <tr><td>E. Cheap wash at $79–129</td><td class="n">$79–129</td><td class="n">about $40</td><td>High</td><td>Many</td><td>Price shoppers; undercuts the premium brand</td><td>Don't offer</td></tr>
+      <tr><td>Exterior only</td><td class="n">$149</td><td class="n">$169</td><td class="n">$199</td><td class="n">$189</td></tr>
+      <tr><td>Interior only</td><td class="n">$199</td><td class="n">$229</td><td class="n">$269</td><td class="n">$249</td></tr>
+      <tr><td>Full detail</td><td class="n">$299</td><td class="n">$339</td><td class="n">$389</td><td class="n">$369</td></tr>
+      <tr class="us"><td><b>Full + Ceramic</b></td><td class="n"><b>$419</b></td><td class="n"><b>$489</b></td><td class="n"><b>$569</b></td><td class="n"><b>$539</b></td></tr>
+      <tr><td>Ceramic add-on alone</td><td class="n">$149</td><td class="n">$179</td><td class="n">$219</td><td class="n">$199</td></tr>
     </tbody>
-  </table>
-  </div>
-  <p class="verdict">Lead with A. Upsell to B at the car. Keep customers with the membership (C). Add D as a tier once someone has proven the skill. Never offer E.</p>
+  </table></div>
+  <p class="verdict">Full detail is priced in the middle of the local market. The bundle is where the extra money comes from: always show it first, highlighted, and $29–39 cheaper than buying both separately.</p>
+  <p class="small mute">"Ceramic" here means a spray-applied SiO₂ ceramic sealant that lasts about 12 months and takes 45–60 minutes. That's what Tilicare advertises too. Sell it as "12-month ceramic protection," not as a multi-year coating.</p>
 </div></section>
 
-<section class="band alt" id="channels"><div class="wrap">
-  <h2>Ad channels: Google gets the first bookings; Meta lead forms are where you scale</h2>
-  <div class="cols">
-    <div class="card">
-      <span class="tag">Captures people already searching</span>
-      <h3>Google Search + Local Services Ads</h3>
-      <p><b>For:</b> people searching "mobile detailing near me" want to book now. Ads rarely get shut down once approved. Fastest first booking. You can target by zip code.</p>
-      <p><b>Against:</b> searches are capped. A metro might have a few thousand a month, and extra budget buys nothing. Clicks cost $5–15. You need reviews to win.</p>
-      <p><b>Role:</b> capture every search in your area. Budget about $1–3k a month, set by search volume.</p>
-    </div>
-    <div class="card win">
-      <span class="tag go">Scales with budget</span>
-      <h3>Meta instant lead forms</h3>
-      <p><b>For:</b> no ceiling on reach. Video sells detailing. Leads run about $15–40. Nobody has to leave Instagram. It's the only channel where outspending competitors actually works.</p>
-      <p><b>Against:</b> lower-intent leads, so you must call within 5 minutes. New accounts get banned. Creative wears out every 2–4 weeks.</p>
-      <p><b>Role:</b> where the extra budget goes. Use qualifying questions so tire-kickers screen themselves out.</p>
-    </div>
-    <div class="card">
-      <span class="tag">Test in month 2</span>
-      <h3>Meta ads to your own landing page</h3>
-      <p><b>For:</b> stronger buyers who pay the deposit themselves, with no calling needed.</p>
-      <p><b>Against:</b> fewer conversions, and slow page loads cost bookings.</p>
-      <p><b>Role:</b> a split test against lead forms, judged on cost per <i>booked</i> job, never cost per lead.</p>
-    </div>
-  </div>
-  <h3 style="margin-top:24px">Reducing the risk of a Meta account ban</h3>
-  <ul>
-    <li>Use a verified Business Manager with two admins, plus a second ad account warmed up with a small spend</li>
-    <li>Raise budgets 20–30% every few days, not 5× overnight</li>
-    <li>Use a consistent payment method and a real business domain with a privacy policy</li>
-    <li>Keep the creative honest (see <a href="#proof">Proof</a>). Misleading claims are a common cause of restrictions</li>
-  </ul>
-</div></section>
-
-<section class="band" id="funnel"><div class="wrap">
-  <h2>The funnel: the 5-minute call and the on-site upsell matter most</h2>
-  <div class="route">
-    <div class="stop"><b>Ad</b><p>Reels and stories aimed at affluent zip codes; Google search ads</p></div>
-    <div class="stop"><b>Lead form</b><p>Vehicle, size, condition 1–5, zip, timing, phone</p></div>
-    <div class="stop hot"><b>Call in 5 min</b><p>Automatic text, then a setter calls. Book with a $75 deposit</p></div>
-    <div class="stop"><b>Dispatch</b><p>Job goes to the nearest vetted detailer with a checklist</p></div>
-    <div class="stop hot"><b>At the car</b><p>Paint check, ceramic pitch, membership pitch</p></div>
-    <div class="stop"><b>Photo QC</b><p>Detailer uploads before/after photos; you approve before the payout</p></div>
-    <div class="stop"><b>Review + referral</b><p>Review request within 2 hours; $50 credit for both friends</p></div>
-  </div>
-  <div class="cols" style="margin-top:20px">
-    <p><b>Speed to lead.</b> Lead-form leads go cold fast. An automatic text goes out within seconds ("Hi Sam, got your request for the 2023 X5, calling you in 2 minutes"), and a person calls right after. At first that person is you. Later it's a commission-based setter.</p>
-    <p><b>The call script, in short:</b> confirm the car and its condition, tell them the price for their size, explain the guarantee, offer two time slots, take the deposit by text-to-pay. If they hesitate, that's what the guarantee is for. Never discount; offer a bonus instead.</p>
-  </div>
-</div></section>
-
-<section class="band alt" id="subs"><div class="wrap">
-  <h2>Hiring detailers: vet three to five, pay flat rates, approve every job by photo</h2>
-  <div class="cols">
-    <div>
-      <h3>Where to find them</h3>
-      <ul><li>Local mobile detailers on Instagram and Google Maps with fewer than 50 reviews. They have skill but no steady flow of jobs</li><li>Facebook groups for local detailers; Indeed and Craigslist postings for "mobile detailer, contract, steady work"</li><li>Pay each one for a paid trial on a car you choose before they get customer jobs</li></ul>
-    </div>
-    <div>
-      <h3>Typical rates (check your local market)</h3>
-      <div class="sticker">
-        <div class="row"><span>Full detail (the Reset)</span><span class="price">$150–250</span></div>
-        <div class="row"><span>Maintenance detail (membership visit)</span><span class="price">$55–85</span></div>
-        <div class="row"><span>Ceramic install, by tier</span><span class="price">$450–1,000</span></div>
-        <div class="row"><span>Commission per ceramic job closed</span><span class="price">$100–150</span></div>
-      </div>
-    </div>
-    <div>
-      <h3>Protect the brand</h3>
-      <ul><li>A written contractor agreement: quality standard, no taking your customers for themselves, they cover damage up to a limit</li><li>Require their insurance certificate; carry your own general liability plus coverage for customers' cars while in your care</li><li>They supply a self-contained rig (water tank and generator), their own products and a branded shirt</li><li>Photo checklist on every job, with payout after you approve it</li><li>Contractor vs. employee rules vary by state, so check before scaling</li></ul>
-    </div>
-  </div>
-</div></section>
-
-<section class="band" id="proof"><div class="wrap">
-  <h2>Proof without past jobs: use the detailers' real work, and use AI for everything else</h2>
-  <div class="cols">
-    <div class="card win">
-      <h3>Use this</h3>
-      <ul>
-        <li><b>Your detailers' own portfolios</b>, with written permission, labelled as "work by our detailers." It's real, and it's the same people who will do the customer's car</li>
-        <li><b>Paid trial jobs</b> on cars you pick. These produce your first real before/afters</li>
-        <li><b>AI (Higgsfield and similar)</b> for hooks, brand and lifestyle scenes, offer cards, motion graphics and b-roll. Use it to test 50 angles at once</li>
-        <li><b>A founding-client bonus</b> for the first 25 customers: a free add-on in exchange for a review and photo permission</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h3>Don't use this</h3>
-      <ul>
-        <li>AI-generated before/afters presented as your results</li>
-        <li>AI avatars posing as customers, or made-up reviews</li>
-        <li>Other shops' photos used without permission</li>
-      </ul>
-      <p class="small mute">These are false advertising under FTC rules, can get a Meta ad account restricted, and fall apart when a $1,500 customer compares the ad with the real result. Real proof builds up with every job, so after about 20 jobs this stops being an issue.</p>
-    </div>
-  </div>
-</div></section>
-
-<section class="band alt" id="copy"><div class="wrap">
-  <h2>Ad copy: three angles to test, and the lead form</h2>
-  <div class="cols">
-    <div class="card"><h3>Convenience</h3><p><b>Hook:</b> "Your car got detailed while you were on a Zoom call."</p><p>We come to your driveway or office with our own water and power. You get a photo report when it's done. Limited slots in [area] this week.</p><p class="small mute">Headline: Showroom Clean. Zero Effort.</p></div>
-    <div class="card"><h3>Transformation</h3><p><b>Hook:</b> a 2-second interior reveal, then "this was 3 hours ago."</p><p>A full interior and exterior reset, with a guarantee: if it isn't the cleanest it's been since you bought it, you don't pay.</p><p class="small mute">Headline: The Signature Reset, $349</p></div>
-    <div class="card"><h3>Protection</h3><p><b>Hook:</b> "You spent $80k on the car. Why is a tunnel wash scratching it?"</p><p>Hand wash only, decontamination, and a 6-month sealant. Book a Reset and get a free paint health check.</p><p class="small mute">Headline: Protect the Investment</p></div>
-  </div>
-  <h3 style="margin-top:22px">Lead form questions (they screen out tire-kickers)</h3>
-  <p>Year, make and model · Size (sedan / SUV / truck or 3-row) · Condition, 1 to 5 · Zip code · When (this week / next 2 weeks / just pricing) · Phone. People who answer "just pricing" go into a text nurture sequence, not the call list.</p>
-  <p>Test 3 angles × 3 hooks = 9 ads in week one. Keep the two with the lowest cost per booked job, then use AI to make 10 variations of each.</p>
-</div></section>
-
-<section class="band" id="stack"><div class="wrap">
-  <h2>Tools: buy the CRM now, build your own website, build custom software later</h2>
-  <div class="scroll">
-  <table class="stack">
-    <thead><tr><th>Job</th><th>Use</th><th>About / month</th><th>Why</th></tr></thead>
+<section class="band alt"><div class="wrap">
+  <h2>What the competitors do</h2>
+  <div class="scroll"><table class="stack">
+    <thead><tr><th>Business</th><th>Pricing shown</th><th>Sizes</th><th>Add-ons</th><th>Booking and payment</th><th>Notable</th></tr></thead>
     <tbody>
-      <tr><td>CRM, texts, lead sync, reminders, reviews, membership billing</td><td>GoHighLevel</td><td class="n">$97–297</td><td>Replaces 5 tools on day one; building our own would delay launch by weeks</td></tr>
-      <tr><td>Website and landing page</td><td>Built in-house (render first, then code)</td><td class="n">$0–20</td><td>One page, fast, fully ours; it's where conversions happen</td></tr>
-      <tr><td>Payments, deposits, subscriptions</td><td>Stripe</td><td class="n">about 3% per payment</td><td>Connects to GoHighLevel; text-to-pay deposits</td></tr>
-      <tr><td>Dispatch to detailers</td><td>GoHighLevel pipeline + a shared photo checklist</td><td class="n">included</td><td>Good enough up to about 10 detailers</td></tr>
-      <tr><td>Tracking</td><td>Meta Pixel + Conversions API, Google Ads conversions, GA4</td><td class="n">$0</td><td>Report <i>booked and paid</i> jobs back to the ad platforms, not just form submissions</td></tr>
-      <tr><td>Reviews</td><td>Google Business Profile</td><td class="n">$0</td><td>Start verification on day 1, since it can take days</td></tr>
+      <tr><td><b>Tilicare</b> (also runs VirginiaCarDetailing.com). VA, MD, DC, FL</td><td>Only after you enter an address and size</td><td>Chosen online (not public)</td><td>Pet hair, deep shampoo, odor, ceramic "up to 12 months"</td><td>$50 refundable deposit; rest paid after "100% satisfied"</td><td>$50 gift card for same/next-day bookings. App. Says "100% our team, never third party." Runs a second brand site for SEO.</td></tr>
+      <tr><td><b>AutoDetail DMV</b>, Fairfax</td><td>Exterior $120 / $140 / $170 / $200. Interior $150–330 up to $180–500</td><td>Small, Medium, Large, XL (minivan, full 3rd row)</td><td>Ceramic, correction, headlights, engine bay, trim, touch-up</td><td>Contact form plus a "ballpark" calculator; final price after inspection</td><td>Interior price isn't fixed until arrival, which adds friction</td></tr>
+      <tr><td><b>Stealth Auto Detail</b>, Herndon / Reston / McLean</td><td>Standard $150, Premium $275, Full Deep Clean $495. Exterior $75–150, Interior $150–250</td><td>Not split by size on the page</td><td>$50 each: odor, pet hair, leather, trim, engine. Headlights $75</td><td>Online booking</td><td>Simple flat menu; add-ons priced openly</td></tr>
+      <tr class="us"><td><b>Your brand</b></td><td>Instant, fixed, by size</td><td>4 sizes, 7-seat separate</td><td>Ceramic offered three times, plus 3 others</td><td>$50 refundable deposit; card saved; balance charged after the job</td><td>Bundle shown first; one-tap add after paying; text-to-add</td></tr>
     </tbody>
-  </table>
-  </div>
-  <p class="small mute">Prices are approximate; check them at signup. Replace GoHighLevel with custom software once you know exactly which workflows you use.</p>
-</div></section>
-
-<section class="band alt" id="launch"><div class="wrap">
-  <h2>14-day launch: ads live by day 5, first paid jobs in week 2</h2>
-  <div class="sticker">
-    <div class="row"><span><b>Days 1–2.</b> Name, LLC, insurance, Stripe, domain. Start Google Business Profile verification. Post detailer job listings.</span><span class="price">Setup</span></div>
-    <div class="row"><span><b>Days 2–5.</b> Interview detailers and run paid trials (your first real before/afters). Sign 3–5 contractor agreements.</span><span class="price">Supply</span></div>
-    <div class="row"><span><b>Days 2–5.</b> Design the landing page render, then build it. Set up GoHighLevel, text automations, the lead form, Pixel/CAPI and conversion tracking.</span><span class="price">Build</span></div>
-    <div class="row"><span><b>Day 4.</b> Produce 9 ads: the detailers' real work plus AI-made hooks and b-roll.</span><span class="price">Creative</span></div>
-    <div class="row"><span><b>Day 5.</b> Google Search goes live. Meta lead forms go live at $100–150 a day.</span><span class="price">Launch</span></div>
-    <div class="row"><span><b>Days 5–14.</b> Call every lead within 5 minutes, dispatch, approve photos, pitch every upsell. Track cost per booked job daily.</span><span class="price">Sell</span></div>
-    <div class="row"><span><b>Day 14.</b> If CAC is under target, raise Meta budget 20–30% every 3 days and add detailers ahead of demand. If not, fix the offer first and the creative second.</span><span class="price">Decide</span></div>
+  </table></div>
+  <div class="cols" style="margin-top:18px">
+    <div class="card"><h3>Copy</h3><p>Tilicare's instant price, $50 refundable deposit, pay-after-service, "we bring water and power," and the same/next-day bonus.</p></div>
+    <div class="card"><h3>Beat</h3><p>Nobody leads with a ceramic bundle or asks again after payment. AutoDetail DMV's quote-on-arrival pricing is friction, and your fixed prices win against it.</p></div>
+    <div class="card"><h3>Be careful</h3><p>Tilicare sells against outsourcing ("never third party"). Never claim your team is in-house. Say "vetted, insured, background-checked detailers" and show the photo-checked guarantee. Use your own wording and design, not theirs.</p></div>
   </div>
 </div></section>
 
-<section class="band" id="open"><div class="wrap">
-  <h2>Open decisions for you</h2>
+<section class="band"><div class="wrap">
+  <h2>Launch in five steps</h2>
   <div class="cols">
-    <div class="card"><h3>Market</h3><p>Which city, and which 10–20 zip codes? That sets search volume, click costs and how high the Reset can be priced.</p></div>
-    <div class="card"><h3>Price level</h3><p>A Reset at $349 or $449+? A higher price shrinks the market but makes room for a bigger ad budget. Use the bar at the top to compare.</p></div>
-    <div class="card"><h3>Launch budget</h3><p>The daily Meta budget for weeks 1–2, and the ceiling once CAC is proven.</p></div>
-    <div class="card"><h3>Who calls leads</h3><p>You at first, or a commission setter from day 1? This is the biggest factor in booking rate.</p></div>
+    <div class="card"><h3>1. Detailers</h3><p>Hire 3–5 local mobile detailers who have their own rig and insurance. Use a flat rate per size, plus about $60 for each ceramic add-on. Run one paid trial each and require photos on every job.</p></div>
+    <div class="card"><h3>2. Checkout</h3><p>Build the 5 screens above in-house. Stripe saves the card with the deposit, so the balance and any one-tap add-on are charged after the job.</p></div>
+    <div class="card"><h3>3. Texts</h3><p>Automated texts: confirmation, a day-before reminder with "reply YES to add ceramic," on-the-way, photos, review request, and a 20%-off ceramic follow-up.</p></div>
+    <div class="card"><h3>4. Ads</h3><p>Google Search for "mobile detailing near me" in NoVA, DC and MD zip codes. Meta video ads sending people to the price page. Judge each by cost per paid order.</p></div>
+    <div class="card"><h3>5. Measure</h3><p>Every week, check cost per order, ceramic attach rate, and average order value. Scale when cost per order is under about $100.</p></div>
   </div>
+  <p class="small mute" style="margin-top:22px">Competitor information comes from their public websites as read on 26 Nov 2026: <a href="https://tilicare.com/">tilicare.com</a>, <a href="https://virginiacardetailing.com/">virginiacardetailing.com</a>, <a href="https://autodetaildmv.com/exterior-mobile-detail-full-wash-and-wax/">AutoDetail DMV exterior</a>, <a href="https://autodetaildmv.com/full-interior-detail/">AutoDetail DMV interior</a>, <a href="https://stealthautodetailva.com/">stealthautodetailva.com</a>. Tilicare's actual prices need an address to see, so they aren't included here. Your prices and costs are planning assumptions.</p>
 </div></section>
-
-<footer class="band"><div class="wrap"><p class="small mute">Planning draft. All prices, payouts and conversion rates are working assumptions to be replaced with real numbers from the first 30 days.</p></div></footer>
 
 <script>
 {
-const D={price:420,sub:50,cer:10,mem:20,mon:8};
-const F={cerPrice:1499,cerSub:.47,memPrice:249,memCost:140,fee:.03,scale:900};
 const $=id=>document.getElementById(id);
-const ids=['price','sub','cer','mem','mon'];
 const usd=v=>(v<0?'−':'')+'$'+Math.round(Math.abs(v)).toLocaleString('en-US');
-const pct=v=>Math.min(100,Math.max(0,v/F.scale*100));
-function calc(){
-  const v={};for(const k of ids)v[k]=+$(k).value;
-  const front=v.price*(1-v.sub/100-F.fee);
-  const cerEach=F.cerPrice*(1-F.cerSub-F.fee);
-  const cer=cerEach*v.cer/100;
-  const memMo=F.memPrice*(1-F.fee)-F.memCost;
-  const m1=memMo*v.mem/100;
-  const mRest=memMo*v.mem/100*Math.max(0,v.mon-1);
-  const d30=front+cer+m1, ltv=d30+mRest, target=d30/2;
-  return {v,front,cer,m1,mRest,d30,ltv,target};
-}
+const D={att:35,pay:50,ord:339},CER=179,CERCOST=60,FEE=.03;
 function render(){
-  const r=calc(),v=r.v;
-  $('oPrice').textContent=usd(v.price);$('oSub').textContent=v.sub+'% of ticket';$('oCer').textContent=v.cer+'%';$('oMem').textContent=v.mem+'%';$('oMon').textContent=v.mon+(v.mon===1?' month':' months');
-  $('g1').style.width=pct(r.front)+'%';$('g2').style.width=pct(r.cer)+'%';$('g3').style.width=pct(r.m1)+'%';$('g4').style.width=pct(r.mRest)+'%';
-  const place=(el,val)=>{const p=pct(val);el.style.left=p+'%';el.classList.toggle('flip',p>62)};
-  place($('mT'),r.target);place($('mC'),r.d30);
-  $('mTv').textContent=usd(r.target);$('mCv').textContent=usd(r.d30);
-  $('kFront').textContent=usd(r.front);$('k30').textContent=usd(r.d30);$('kTarget').textContent=usd(r.target);
-  $('hLtv').textContent=usd(r.ltv);$('hCeil').textContent=usd(r.d30);
-  $('tPrice').textContent=usd(v.price);$('tSub').textContent=usd(-v.price*v.sub/100);$('tFee').textContent=usd(-v.price*F.fee);$('tGp').textContent=usd(r.front);
-  const L=[['s1','Reset job',r.front],['s2','Ceramic upsell (share of customers)',r.cer],['s3','Membership, month 1',r.m1],['s4','Membership, later months',r.mRest]];
-  $('legend').innerHTML=L.map(x=>'<span><i class="'+x[0]+'"></i>'+x[1]+' <b>'+usd(x[2])+'</b></span>').join('')+'<span>Lifetime total <b>'+usd(r.ltv)+'</b></span>';
-  $('bar').setAttribute('aria-label','Lifetime gross profit '+usd(r.ltv)+', first 30 days '+usd(r.d30)+', target CAC '+usd(r.target));
+  const a=+$('att').value/100,p=+$('pay').value/100,o=+$('ord').value;
+  const det=o*p,fee=o*FEE,gp=o-det-fee,cer=(CER*(1-FEE)-CERCOST)*a,tot=gp+cer;
+  $('oAtt').textContent=Math.round(a*100)+'%';$('oPay').textContent=Math.round(p*100)+'%';$('oOrd').textContent=usd(o);
+  const max=o+CER;
+  const R=[['Order price',o,''],['Detailer pay',-det,'n'],['Card fees',-fee,'n'],['Order profit',gp,''],['Ceramic profit, average',cer,'c']];
+  $('rows').innerHTML=R.map(r=>'<div class="r"><span>'+r[0]+'</span><div><div class="t '+r[2]+'" style="width:'+Math.max(1,Math.abs(r[1])/max*100)+'%"></div></div><span class="v">'+usd(r[1])+'</span></div>').join('');
+  $('bGp').textContent=usd(tot);$('bCac').textContent=usd(tot/2);$('bMax').textContent=usd(tot);
 }
-for(const k of ids)$(k).addEventListener('input',render);
-$('reset').addEventListener('click',()=>{for(const k of ids)$(k).value=D[k];render()});
+for(const k in D)$(k).addEventListener('input',render);
+$('rst').addEventListener('click',()=>{for(const k in D)$(k).value=D[k];render()});
+const s=$('strip'),step=()=>254;
+$('prev').addEventListener('click',()=>s.scrollBy({left:-step(),behavior:'smooth'}));
+$('next').addEventListener('click',()=>s.scrollBy({left:step(),behavior:'smooth'}));
+s.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){e.preventDefault();s.scrollBy({left:step(),behavior:'smooth'})}if(e.key==='ArrowLeft'){e.preventDefault();s.scrollBy({left:-step(),behavior:'smooth'})}});
 render();
 }
 </script>
